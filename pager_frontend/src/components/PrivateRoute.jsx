@@ -7,7 +7,7 @@ const PrivateRoute = ({ children }) => {
   const [auth, setAuth] = useState(false);
 
   useEffect(() => {
-    axios.get("http://localhost:8000/api/v1/users/verify", { withCredentials: true })
+    axios.get(`${import.meta.env.VITE_BACKEND_URI}users/verify`, { withCredentials: true })
       .then(() => setAuth(true))
       .catch(() => setAuth(false))
       .finally(() => setLoading(false));
