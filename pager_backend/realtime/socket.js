@@ -3,7 +3,7 @@ import { Server } from 'socket.io';
 const setupSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: "https://im-pager.vercel.app/",
+      origin: "https://im-pager.vercel.app",
       methods: ["GET", "POST"],
       credentials: true,
     },

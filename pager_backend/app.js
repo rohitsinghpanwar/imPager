@@ -14,7 +14,8 @@ const server = http.createServer(app) // <-- create HTTP server
 setupSocket(server) // <-- pass server to setupSocket
 
 app.use(cors({
-    origin: "https://im-pager.vercel.app/",
+    origin: "https://im-pager.vercel.app",
+    methods: ["GET", "POST"],
     credentials: true
 }))
 
