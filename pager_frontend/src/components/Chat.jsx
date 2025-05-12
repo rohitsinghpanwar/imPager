@@ -34,7 +34,7 @@ function Chat() {
   const fetchChatters = async () => {
     try {
       setLoading(true);
-      const res = await axios.get("http://localhost:8000/api/v1/chatrequest/chatters", { withCredentials: true });
+      const res = await axios.get(`${import.meta.env.VITE_BACKEND_URI}chatrequest/chatters`, { withCredentials: true });
       setChatters(res.data.chatters);
     } catch (error) {
       console.error("Failed to fetch chatters:", error);
@@ -46,7 +46,7 @@ function Chat() {
   // Fetch chat requests
   const fetchRequestees = async () => {
     try {
-      const res = await axios.get("http://localhost:8000/api/v1/chatrequest/show", { withCredentials: true });
+      const res = await axios.get(`${import.meta.env.VITE_BACKEND_URI}chatrequest/show`, { withCredentials: true });
       setRequestee(res.data.requestReceiver);
     } catch (error) {
       console.error("Failed to fetch chat requests:", error);
@@ -55,7 +55,7 @@ function Chat() {
 
   const handleAcceptButton = async (requestId) => {
     try {
-      await axios.post("http://localhost:8000/api/v1/chatrequest/status/accept", { id: requestId }, { withCredentials: true });
+      await axios.post(`${import.meta.env.VITE_BACKEND_URI}chatrequest/status/accept`, { id: requestId }, { withCredentials: true });
       await fetchRequestees();
       await fetchChatters();
     } catch (error) {
@@ -65,7 +65,7 @@ function Chat() {
 
   const handleRejectButton = async (requestId) => {
     try {
-      await axios.post("http://localhost:8000/api/v1/chatrequest/status/reject", { id: requestId }, { withCredentials: true });
+      await axios.post(`${import.meta.env.VITE_BACKEND_URI}chatrequest/status/reject`, { id: requestId }, { withCredentials: true });
       await fetchRequestees();
     } catch (error) {
       console.error("Error rejecting request:", error);
@@ -79,7 +79,7 @@ function Chat() {
   const handleChat = async (deets) => {
     setSelectedChatterId(deets._id);
     try {
-      const res = await axios.post("http://localhost:8000/api/v1/chat/chatid", {
+      const res = await axios.post(`${import.meta.env.VITE_BACKEND_URI}chat/chatid`, {
         userId: _id,
         chatterId: deets._id,
       }, { withCredentials: true });
@@ -99,7 +99,7 @@ function Chat() {
   const handleLogout = () => {
     const consent = confirm("Are you sure, you want to logout?");
     if (consent) {
-      axios.post("http://localhost:8000/api/v1/users/logout", {}, { withCredentials: true })
+      axios.post(`${import.meta.env.VITE_BACKEND_URI}users/logout`, {}, { withCredentials: true })
         .then(() => {
           localStorage.removeItem("impUser");
           navigate("/login");

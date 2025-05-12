@@ -31,7 +31,7 @@ function Signup() {
       formData.append("password", formdata.password);
       if (profilePhoto) formData.append("profilePhoto", profilePhoto);
 
-      const response = await axios.post("http://localhost:8000/api/v1/users/register", formData, {
+      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URI}users/register`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 

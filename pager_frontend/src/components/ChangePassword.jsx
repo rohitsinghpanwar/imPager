@@ -14,7 +14,7 @@ function ChangePassword() {
     e.preventDefault();
     setLoading(true)
     try {
-      await axios.post("http://localhost:8000/api/v1/users/changepassword", { email, newPassword: password.newPassword })
+      await axios.post(`${import.meta.env.VITE_BACKEND_URI}users/changepassword`, { email, newPassword: password.newPassword })
       navigate("/login")
     } catch (error) {
       console.log(error.status)

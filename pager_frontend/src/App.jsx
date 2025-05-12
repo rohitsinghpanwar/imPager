@@ -12,7 +12,7 @@ function App() {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                const response = await axios.get("http://localhost:8000/api/v1/users/me", {
+                const response = await axios.get(`${import.meta.env.VITE_BACKEND_URI}users/me`, {
                     withCredentials: true, // ✅ Send cookies
                 });
                 setUser(response.data?.data?.user)
@@ -22,8 +22,8 @@ function App() {
                 console.log("User not logged in", error);
                 if (error.response?.status === 401) {
                     try {
-                        await axios.get("http://localhost:8000/api/v1/users/refreshcreds", { withCredentials: true });
-                        const retryPersistLogin = await axios.get("http://localhost:8000/api/v1/users/me", { withCredentials: true });
+                        await axios.get(`${import.meta.env.VITE_BACKEND_URI}users/refreshcreds`, { withCredentials: true });
+                        const retryPersistLogin = await axios.get(`${import.meta.env.VITE_BACKEND_URI}users/me`, { withCredentials: true });
                         checkAuth();
                     } catch (error) {
                         console.log("Invalid refresh token")
@@ -74,7 +74,7 @@ function App() {
     <div className="flex flex-col items-start">
       <h2 className="text-lg font-semibold mb-1">Socials</h2>
       <div className="flex gap-4">
-        <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
+        <a href="https://github.com/rohitsinghpanwar/imPager" target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform">
           <img src={githubIcon} alt="GitHub" className="h-5 " />
         </a>
         <a href="mailto:rohitsinghpanwar108@gmail.com" className="hover:scale-110 transition-transform">

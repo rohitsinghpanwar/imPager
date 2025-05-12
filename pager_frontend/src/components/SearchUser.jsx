@@ -12,7 +12,7 @@ const [status,setStatus]=useState(null)
 const sendChatRequest = async () => {
   try {
     const response = await axios.post(
-      "http://localhost:8000/api/v1/chatrequest/send",
+      `${import.meta.env.VITE_BACKEND_URI}chatrequest/send`,
       { userId: userId, receiverId: user.receiverId },
       { withCredentials: true }
     );
@@ -31,7 +31,7 @@ const handleSearch = async () => {
   if (searchUser) {
     try {
       const response = await axios.post(
-        "http://localhost:8000/api/v1/users/search",
+        `${import.meta.env.VITE_BACKEND_URI}users/search`,
         { username: searchUser },
         { withCredentials: true }
       );
@@ -47,7 +47,7 @@ const handleSearch = async () => {
         profilePhoto: deets.profilePhoto,
         receiverId: deets._id
       });
-      const res=await axios.post("http://localhost:8000/api/v1/chatrequest/status",{userId,searchUserId:deets._id})
+      const res=await axios.post(`${import.meta.env.VITE_BACKEND_URI}chatrequest/status`,{userId,searchUserId:deets._id})
       console.log(res)
       setStatus(res?.data?.status)
       setShow(true)

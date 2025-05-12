@@ -17,7 +17,7 @@ function Login() {
     e.preventDefault();
     setLoading(true)
     try {
-      const response = await axios.post('http://localhost:8000/api/v1/users/login', formdata, { withCredentials: true })
+      const response = await axios.post(`${import.meta.env.VITE_BACKEND_URI}users/login`, formdata, { withCredentials: true })
       localStorage.setItem("impUser", JSON.stringify(response.data.data.user));
       navigate("/chat")
     } catch (error) {

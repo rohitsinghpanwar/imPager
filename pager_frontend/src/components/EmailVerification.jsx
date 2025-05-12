@@ -21,7 +21,7 @@ function EmailVerification() {
     e.preventDefault();
     setLoading(true)
     try {
-      await axios.post("http://localhost:8000/api/v1/users/emailverification", {
+      await axios.post(`${import.meta.env.VITE_BACKEND_URI}users/emailverification`, {
         otp: otp.otp,  // 👈 flatten here
         email: email
       })

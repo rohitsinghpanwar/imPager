@@ -13,7 +13,7 @@ function ForgotPassword() {
     console.log(email)
     setLoading(true)
     try {
-      await axios.post("http://localhost:8000/api/v1/users/forgotpassword", { email: email }).then((res) => {
+      await axios.post(`${import.meta.env.VITE_BACKEND_URI}users/forgotpassword`, { email: email }).then((res) => {
         navigate("/forgotpassword/emailverification", { state: { email: email?.email || email } })
         setOtpStatus(true)
         console.log(res)
