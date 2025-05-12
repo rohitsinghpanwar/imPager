@@ -119,15 +119,34 @@ function ChatSection(props) {
       hour12: true, 
     });
   };
+  const handleVideoCall = () => {
+  socket.emit("video_call_request", {
+    fromUserId: props.chat.userId,
+    toUserId: props.chat.chatterId,
+  });
+};
+
 
   return (
     <div className="border relative w-full">
-      <div className="bg-gradient-to-b from-blue-300 to to-gray-500 flex items-center justify-between shadow-xl p-2">
+      <div className="bg-amber-100 flex items-center justify-between p-2">
         <img
           src={props.chat.chatterProfilePhoto}
           alt="Chatter Profile Photo"
           className="rounded-full border w-16 h-16"
         />
+        <button
+  className="bg-blue-500 p-1 rounded-lg font-semibold text-lg"
+  onClick={() => {
+    socket.emit("video_call_request", {
+      fromUserId: userId,
+      toUserId: props.chat.chatterId, // Ensure this ID is provided in props
+    });
+  }}
+>
+  Video Call
+</button>
+
         <h2 className="font-bold text-2xl italic text-black">{props.chat.chatterUsername}</h2>
       </div>
 
@@ -142,7 +161,7 @@ function ChatSection(props) {
           >
             <div
               className={`relative border rounded-xl p-2 max-w-[70%] ${
-                msg.sender === userId ? "bg-emerald-400 text-white" : "bg-blue-400 text-white"
+                msg.sender === userId ? "bg-green-400 text-white" : "bg-blue-400 text-white"
               }`}
             >
               <h1>{msg.sender === userId
@@ -151,7 +170,7 @@ function ChatSection(props) {
               <div
                 className={`absolute w-0 h-0 border-t-8 border-b-8 ${
                   msg.sender === userId
-                    ? "border-l-8 border-l-emerald-400 right-[-8px] top-2"
+                    ? "border-l-8 border-l-green-400 right-[-8px] top-2"
                     : "border-r-8 border-r-blue-400 left-[-8px] top-2"
                 }`}
               ></div>
@@ -171,7 +190,7 @@ function ChatSection(props) {
         />
         <img
           src={sendIcon}
-          className={`px-4 py-1 rounded text-white ${disable ? "invert-50 cursor-not-allowed" : ""}`}
+          className={`px-4 py-1 text-white ${disable ? "invert-50 cursor-not-allowed" : ""}`}
           disabled={disable}
           onClick={handleSend}
           alt="Send"

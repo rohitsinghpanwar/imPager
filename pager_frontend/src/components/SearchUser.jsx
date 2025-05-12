@@ -37,7 +37,7 @@ const handleSearch = async () => {
       );
       const deets = response.data.data;
       if (userId === deets._id) {
-        setError("Sorry!,You cannot chat with yourself😜");
+        setError("Sorry!,You cannot chat with yourself");
         setShow(false);
         setTimeout(() => setError(""), 3000);
         return;
@@ -70,7 +70,7 @@ const handleSearch = async () => {
 };
 
   return (
-    <div className='border rounded-xl m-2 flex h-35 flex-col items-center justify-evenly bg-gradient-to-b from-blue-300 to to-gray-500 '>
+    <div className='border rounded-xl m-2 flex h-35 flex-col items-center justify-evenly backdrop-blur-2xl bg-white/30 '>
         <h1 className='border-2 p-1 rounded border-dotted text-lg font-semibold'>Search By Username</h1>
         <div className='w-full flex items-center justify-center gap-2 '>
         <input type="search" placeholder='Enter the username' className='border h-8 rounded w-[70%] ' onChange={(e)=>setSearchUser(e.target.value)} required />   

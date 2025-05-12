@@ -5,10 +5,13 @@ import socket from "./socket";
 import SearchUser from "./SearchUser";
 import ChatSection from "./ChatSection";
 import Profile from "./Profile";
+import VideoCallModal from "./VideoCallModal";
+import VideoCall from "./VideoCall";
 
 function Chat() {
   const navigate = useNavigate();
   const { profilePhoto, _id } = JSON.parse(localStorage.getItem("impUser"));
+
   const [requestee, setRequestee] = useState([]);
   const [showChatRequest, setShowChatRequest] = useState(false);
   const [chatters, setChatters] = useState([]);
@@ -16,6 +19,8 @@ function Chat() {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [showProfile, setShowProfile] = useState(false);
   const [selectedChatterId, setSelectedChatterId] = useState('');
+  const [incomingCall, setIncomingCall] = useState(null);
+  const [activeCall, setActiveCall] = useState(null);
 
   const [chatterDetails, setChatterDetails] = useState({
     chatId: '',
@@ -25,7 +30,7 @@ function Chat() {
     chatterId: '',
   });
 
-  // Fetch accepted chatters
+  // Fetch chatters
   const fetchChatters = async () => {
     try {
       setLoading(true);
@@ -50,17 +55,9 @@ function Chat() {
 
   const handleAcceptButton = async (requestId) => {
     try {
-      const res = await axios.post("http://localhost:8000/api/v1/chatrequest/status/accept", { id: requestId }, { withCredentials: true });
-      if (res.data.message) {
-        console.log(res.data.message);
-        setRequestee(prev =>
-          prev.map(req =>
-            req._id === requestId ? { ...req, status: 'accepted' } : req
-          )
-        );
-        await fetchRequestees();
-        await fetchChatters();
-      }
+      await axios.post("http://localhost:8000/api/v1/chatrequest/status/accept", { id: requestId }, { withCredentials: true });
+      await fetchRequestees();
+      await fetchChatters();
     } catch (error) {
       console.error("Error accepting request:", error);
     }
@@ -68,16 +65,8 @@ function Chat() {
 
   const handleRejectButton = async (requestId) => {
     try {
-      const res = await axios.post("http://localhost:8000/api/v1/chatrequest/status/reject", { id: requestId }, { withCredentials: true });
-      if (res.data.message) {
-        console.log(res.data.message);
-        setRequestee(prev =>
-          prev.map(req =>
-            req._id === requestId ? { ...req, status: 'Rejected' } : req
-          )
-        );
-        await fetchRequestees();
-      }
+      await axios.post("http://localhost:8000/api/v1/chatrequest/status/reject", { id: requestId }, { withCredentials: true });
+      await fetchRequestees();
     } catch (error) {
       console.error("Error rejecting request:", error);
     }
@@ -88,17 +77,13 @@ function Chat() {
   };
 
   const handleChat = async (deets) => {
-    setSelectedChatterId(deets._id); // Set selected user
-
-    const data = {
-      userId: _id,
-      chatterId: deets._id,
-    };
-
+    setSelectedChatterId(deets._id);
     try {
-      const res = await axios.post("http://localhost:8000/api/v1/chat/chatid", data, {
-        withCredentials: true,
-      });
+      const res = await axios.post("http://localhost:8000/api/v1/chat/chatid", {
+        userId: _id,
+        chatterId: deets._id,
+      }, { withCredentials: true });
+
       setChatterDetails({
         chatId: res.data.chatId,
         chatterUsername: deets.username,
@@ -110,7 +95,6 @@ function Chat() {
       console.log(error);
     }
   };
-
 
   const handleLogout = () => {
     const consent = confirm("Are you sure, you want to logout?");
@@ -124,14 +108,35 @@ function Chat() {
     }
   };
 
+  // Handle incoming/outgoing video calls
   useEffect(() => {
-    if (_id) {
-      socket.emit("user_connected", _id);
-    }
-    fetchRequestees();
-    fetchChatters();
-  }, [_id]);
+    // Receiver gets incoming call
+    socket.on("incoming_video_call", ({ fromUserId }) => {
+      setIncomingCall({ fromUserId });
+    });
 
+    // Caller and receiver handle call acceptance
+    socket.on("video_call_response", ({ accepted, fromUserId, toUserId }) => {
+      if (accepted) {
+        setActiveCall({ fromUserId, toUserId });
+      } else {
+        alert("Call was rejected");
+      }
+    });
+
+    // Handle call end from the other user
+    socket.on("call_ended", () => {
+      setActiveCall(null);
+    });
+
+    return () => {
+      socket.off("incoming_video_call");
+      socket.off("video_call_response");
+      socket.off("call_ended");
+    };
+  }, []);
+
+  // Track online users
   useEffect(() => {
     socket.on("update_online_users", (onlineIds) => {
       setOnlineUsers(onlineIds);
@@ -140,10 +145,19 @@ function Chat() {
     return () => socket.off("update_online_users");
   }, []);
 
+  // Initial load
+  useEffect(() => {
+    if (_id) {
+      socket.emit("user_connected", _id);
+    }
+    fetchRequestees();
+    fetchChatters();
+  }, [_id]);
+
   return (
     <div className="w-[100vw] h-[100vh]">
       {/* Navbar */}
-      <nav className="flex w-full bg-gradient-to-b from-blue-950 items-center justify-between p-1 h-15 text-lg font-semibold rounded-b-lg">
+      <nav className="flex w-full bg-black/30 items-center justify-between p-1 h-15 text-lg font-semibold">
         <h1>imPager</h1>
         <div>
           <button onClick={() => setShowChatRequest(!showChatRequest)}>
@@ -183,12 +197,51 @@ function Chat() {
         </div>
       </nav>
 
+      {/* Incoming Call Modal */}
+      {incomingCall && (
+        <VideoCallModal
+          caller={incomingCall.fromUserId}
+          onAccept={() => {
+            socket.emit("video_call_response", {
+              toUserId: incomingCall.fromUserId,
+              accepted: true,
+              fromUserId: _id,
+            });
+            setIncomingCall(null);
+            setActiveCall({ fromUserId: incomingCall.fromUserId, toUserId: _id });
+          }}
+          onReject={() => {
+            socket.emit("video_call_response", {
+              toUserId: incomingCall.fromUserId,
+              accepted: false,
+              fromUserId: _id,
+            });
+            setIncomingCall(null);
+          }}
+        />
+      )}
+
+      {/* Active Video Call */}
+      {activeCall && (
+        <VideoCall
+          socket={socket}
+          localUserId={_id}
+          remoteUserId={activeCall.fromUserId === _id ? activeCall.toUserId : activeCall.fromUserId}
+          onEnd={() => {
+            socket.emit("call_ended", {
+              toUserId: activeCall.fromUserId === _id ? activeCall.toUserId : activeCall.fromUserId,
+            });
+            setActiveCall(null);
+          }}
+        />
+      )}
+
       {/* Body */}
       <div className="flex h-[91vh] border">
         {/* Users Section */}
-        <section className="bg-gradient-to-br from-emerald-300 to-blue-300 border w-[70%]">
+        <section className="bg-gradient-to-br from-orange-200 to-yellow-200 border w-[70%]">
           <SearchUser userId={_id} />
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-center gap-2">
             <h1 className="font-bold text-xl border-2 p-1 rounded border-dotted">Chatters</h1>
             {loading ? (
               <p>Loading chatters...</p>
@@ -196,21 +249,14 @@ function Chat() {
               chatters.map((user) => (
                 <div
                   key={user._id}
-                  className={`flex items-center gap-4 p-4 shadow-xl rounded mb-2 w-full transition-all ease-in-out duration-500 ${selectedChatterId === user._id
-      ? "bg-white/60 border-2 border-blue-900"
-      : "hover:bg-white/40"} justify-around`}
+                  className={`flex items-center gap-4 p-4 shadow-xl rounded mb-2 w-full transition-all ease-in-out duration-500 ${selectedChatterId === user._id ? "bg-white/50" : "hover:bg-white/40"} justify-around`}
                   onClick={() => handleChat(user)}
                 >
                   <img src={user.profilePhoto} alt={user.username} className="w-12 h-12 rounded-full object-cover" />
                   <div>
                     <p className="font-semibold">{user.username}</p>
                   </div>
-                  <span
-                    className={`border border-black rounded-full p-1 text-xs ${onlineUsers.includes(user._id)
-                      ? "bg-gradient-to-br from-emerald-300 to-blue-300"
-                      : "bg-gradient-to-bl from-red-400 to-red-600"
-                      }`}
-                  >
+                  <span className={`border border-black rounded-full p-1 text-xs ${onlineUsers.includes(user._id) ? "bg-gradient-to-br from-emerald-300 to-blue-300" : "bg-gradient-to-bl from-red-400 to-red-600"}`}>
                     {onlineUsers.includes(user._id) ? "Online" : "Offline"}
                   </span>
                 </div>
@@ -225,7 +271,7 @@ function Chat() {
         <ChatSection chat={chatterDetails} />
       </div>
 
-      {/* Profile Popup */}
+      {/* Profile Modal */}
       {showProfile && <Profile onCancel={() => setShowProfile(false)} />}
     </div>
   );

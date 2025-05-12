@@ -25,6 +25,39 @@ const setupSocket = (server) => {
       console.log(`User joined chat room: ${chatId}`);
     });
 
+    socket.on("video_call_request", ({ fromUserId, toUserId }) => {
+  const targetSocketId = onlineUsers.get(toUserId);
+  if (targetSocketId) {
+    io.to(targetSocketId).emit("incoming_video_call", { fromUserId });
+  }
+});
+
+socket.on("video_call_response", ({ toUserId, accepted }) => {
+  const targetSocketId = onlineUsers.get(toUserId);
+  if (targetSocketId) {
+    io.to(targetSocketId).emit("video_call_response", { accepted });
+  }
+});
+
+socket.on("offer", ({ to, offer }) => {
+  io.to(to).emit("offer", { offer });
+});
+
+socket.on("answer", ({ to, answer }) => {
+  io.to(to).emit("answer", { answer });
+});
+
+socket.on("ice_candidate", ({ to, candidate }) => {
+  io.to(to).emit("ice_candidate", { candidate });
+});
+  socket.on("call_ended", ({ toUserId }) => {
+    const toSocketId = onlineUsers.get(toUserId);
+    if (toSocketId) {
+      io.to(toSocketId).emit("call_ended");
+    }
+  });
+
+
     socket.on("new_message", (data) => {
       io.to(data.chatId).emit("receive_message", data);
     });
