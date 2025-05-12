@@ -11,17 +11,23 @@ const VideoCall = ({ socket, localUserId, remoteUserId, isCaller, onEnd }) => {
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     };
 
+    // Create a new peer connection
     peerConnection.current = new RTCPeerConnection(servers);
 
     // Get media stream and set up local and remote video
     navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
+      // Set the local video stream
       localVideoRef.current.srcObject = stream;
+
+      // Add local stream tracks to the peer connection
       stream.getTracks().forEach((track) => peerConnection.current.addTrack(track, stream));
 
+      // When a remote stream is added, set it to the remote video
       peerConnection.current.ontrack = (event) => {
         remoteVideoRef.current.srcObject = event.streams[0];
       };
 
+      // When ICE candidates are available, send them to the remote user
       peerConnection.current.onicecandidate = (event) => {
         if (event.candidate) {
           socket.emit("ice_candidate", {
@@ -31,9 +37,11 @@ const VideoCall = ({ socket, localUserId, remoteUserId, isCaller, onEnd }) => {
         }
       };
 
-      // Listen for ice candidate from remote user
+      // Listen for ICE candidates from remote user
       socket.on("ice_candidate", ({ candidate }) => {
-        peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+        if (candidate) {
+          peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+        }
       });
 
       // Listen for incoming offer
@@ -45,38 +53,38 @@ const VideoCall = ({ socket, localUserId, remoteUserId, isCaller, onEnd }) => {
         setCallStarted(true);
       });
 
-      // Listen for answer from the remote user
+      // Listen for answer from remote user
       socket.on("answer", async ({ answer }) => {
         await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
         setCallStarted(true);
       });
 
-      // Initiate the call if the user is the caller
+      // If the user is the caller, initiate the call
       if (isCaller) {
         const startCall = async () => {
           const offer = await peerConnection.current.createOffer();
           await peerConnection.current.setLocalDescription(offer);
           socket.emit("offer", { to: remoteUserId, offer });
         };
-
         startCall();
       }
+    }).catch(error => {
+      console.error("Error accessing media devices:", error);
     });
 
-    // Clean up peer connection and listeners when component unmounts
+    // Cleanup on unmount
     return () => {
       peerConnection.current.close();
       socket.off("ice_candidate");
       socket.off("offer");
       socket.off("answer");
-      socket.off("call_ended"); // Remove the call_ended listener when component unmounts
+      socket.off("call_ended");
     };
-  }, [remoteUserId, isCaller]);
+  }, [remoteUserId, isCaller, socket]);
 
   const handleEndCall = () => {
     // Emit 'call_ended' to notify the other user the call has ended
     socket.emit("call_ended", { fromUserId: localUserId, toUserId: remoteUserId });
-
     // Call the onEnd function provided by the parent to handle local cleanup
     onEnd();
   };
@@ -88,7 +96,7 @@ const VideoCall = ({ socket, localUserId, remoteUserId, isCaller, onEnd }) => {
     });
 
     return () => {
-      socket.off("call_ended"); // Clean up the listener when the component unmounts
+      socket.off("call_ended");
     };
   }, [onEnd, socket]);
 
