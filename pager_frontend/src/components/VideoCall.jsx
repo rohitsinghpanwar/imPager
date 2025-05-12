@@ -8,139 +8,154 @@ const VideoCall = ({ socket, localUserId, remoteUserId, isCaller, onEnd }) => {
 
   useEffect(() => {
     const servers = {
-      iceServers: [
-        { urls: "stun:stun.l.google.com:19302" },
-        // Add TURN servers here if needed
-      ],
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     };
 
+    console.log("Component mounted. Local User ID:", localUserId, "Remote User ID:", remoteUserId, "Is Caller:", isCaller);
+
+    // Create a new peer connection
     peerConnection.current = new RTCPeerConnection(servers);
+    console.log("Peer connection created:", peerConnection.current);
 
-    // Track ICE connection state
-    peerConnection.current.oniceconnectionstatechange = () => {
-      console.log("ICE Connection State:", peerConnection.current.iceConnectionState);
-    };
+    // Get media stream and set up local and remote video
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
+      console.log("Local media stream obtained:", stream);
 
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      .then((stream) => {
+      // Set the local video stream
+      if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
+        console.log("Local stream set to localVideoRef");
+      }
 
-        // Add tracks to peer connection
-        stream.getTracks().forEach((track) => {
-          peerConnection.current.addTrack(track, stream);
-        });
-
-        // Handle remote track additions
-        peerConnection.current.ontrack = (event) => {
-          if (event.streams && event.streams[0]) {
-            remoteVideoRef.current.srcObject = event.streams[0];
-          }
-        };
-
-        // ICE Candidate handling
-        peerConnection.current.onicecandidate = (event) => {
-          if (event.candidate) {
-            socket.emit("ice_candidate", {
-              to: remoteUserId,
-              candidate: event.candidate,
-            });
-          }
-        };
-
-        // Socket listeners
-        const handleIceCandidate = ({ candidate }) => {
-          if (candidate) {
-            peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate))
-              .catch(e => console.error("Error adding ICE candidate:", e));
-          }
-        };
-
-        const handleOffer = async ({ offer }) => {
-          try {
-            await peerConnection.current.setRemoteDescription(new RTCSessionDescription(offer));
-            const answer = await peerConnection.current.createAnswer();
-            await peerConnection.current.setLocalDescription(answer);
-            socket.emit("answer", { to: remoteUserId, answer });
-            setCallStarted(true);
-          } catch (e) {
-            console.error("Error handling offer:", e);
-          }
-        };
-
-        const handleAnswer = async ({ answer }) => {
-          try {
-            await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
-            setCallStarted(true);
-          } catch (e) {
-            console.error("Error handling answer:", e);
-          }
-        };
-
-        socket.on("ice_candidate", handleIceCandidate);
-        socket.on("offer", handleOffer);
-        socket.on("answer", handleAnswer);
-
-        // Initiate call if caller
-        if (isCaller) {
-          const createOffer = async () => {
-            try {
-              const offer = await peerConnection.current.createOffer();
-              await peerConnection.current.setLocalDescription(offer);
-              socket.emit("offer", { to: remoteUserId, offer });
-            } catch (e) {
-              console.error("Error creating offer:", e);
-            }
-          };
-          createOffer();
-        }
-      })
-      .catch((error) => {
-        console.error("Error accessing media:", error);
+      // Add local stream tracks to the peer connection
+      stream.getTracks().forEach((track) => {
+        peerConnection.current.addTrack(track, stream);
+        console.log("Local track added to peer connection:", track);
       });
 
+      // When a remote stream is added, set it to the remote video
+      peerConnection.current.ontrack = (event) => {
+        console.log("Remote track received:", event);
+        if (remoteVideoRef.current && event.streams && event.streams.length > 0) {
+          remoteVideoRef.current.srcObject = event.streams[0];
+          console.log("Remote stream set to remoteVideoRef:", event.streams[0]);
+        } else {
+          console.log("No remote stream or remoteVideoRef is null");
+        }
+      };
+
+      // When ICE candidates are available, send them to the remote user
+      peerConnection.current.onicecandidate = (event) => {
+        if (event.candidate) {
+          console.log("Local ICE candidate generated:", event.candidate);
+          socket.emit("ice_candidate", {
+            to: remoteUserId,
+            candidate: event.candidate,
+          });
+          console.log("Local ICE candidate sent to:", remoteUserId);
+        }
+      };
+
+      // Listen for ICE candidates from remote user
+      socket.on("ice_candidate", ({ candidate }) => {
+        console.log("Received remote ICE candidate:", candidate);
+        if (candidate) {
+          peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate))
+            .then(() => console.log("Remote ICE candidate added successfully"))
+            .catch((error) => console.error("Error adding remote ICE candidate:", error));
+        }
+      });
+
+      // Listen for incoming offer
+      socket.on("offer", async ({ offer }) => {
+        console.log("Received offer from:", remoteUserId, "Offer:", offer);
+        try {
+          await peerConnection.current.setRemoteDescription(new RTCSessionDescription(offer));
+          console.log("Remote description set from offer");
+          const answer = await peerConnection.current.createAnswer();
+          await peerConnection.current.setLocalDescription(answer);
+          console.log("Local description set with answer:", answer);
+          socket.emit("answer", { to: remoteUserId, answer });
+          console.log("Answer sent to:", remoteUserId);
+          setCallStarted(true);
+        } catch (error) {
+          console.error("Error handling offer:", error);
+        }
+      });
+
+      // Listen for answer from remote user
+      socket.on("answer", async ({ answer }) => {
+        console.log("Received answer from:", remoteUserId, "Answer:", answer);
+        try {
+          await peerConnection.current.setRemoteDescription(new RTCSessionDescription(answer));
+          console.log("Remote description set from answer");
+          setCallStarted(true);
+        } catch (error) {
+          console.error("Error handling answer:", error);
+        }
+      });
+
+      // If the user is the caller, initiate the call
+      if (isCaller) {
+        const startCall = async () => {
+          console.log("Initiating call as caller");
+          try {
+            const offer = await peerConnection.current.createOffer();
+            await peerConnection.current.setLocalDescription(offer);
+            console.log("Local description set with offer:", offer);
+            socket.emit("offer", { to: remoteUserId, offer });
+            console.log("Offer sent to:", remoteUserId);
+          } catch (error) {
+            console.error("Error creating or sending offer:", error);
+          }
+        };
+        startCall();
+      }
+    }).catch((error) => {
+      console.error("Error accessing media devices:", error);
+    });
+
+    // Cleanup on unmount
     return () => {
+      console.log("Component unmounted. Closing peer connection and removing listeners.");
       if (peerConnection.current) {
         peerConnection.current.close();
       }
       socket.off("ice_candidate");
       socket.off("offer");
       socket.off("answer");
+      socket.off("call_ended");
     };
   }, [remoteUserId, isCaller, socket]);
 
   const handleEndCall = () => {
-    socket.emit("call_ended", { toUserId: remoteUserId });
+    console.log("Ending call. Emitting 'call_ended' event.");
+    socket.emit("call_ended", { fromUserId: localUserId, toUserId: remoteUserId });
     onEnd();
   };
 
   useEffect(() => {
-    socket.on("call_ended", onEnd);
-    return () => socket.off("call_ended");
+    // Listen for 'call_ended' event from the other side
+    socket.on("call_ended", () => {
+      console.log("Received 'call_ended' event. Ending call.");
+      onEnd();
+    });
+
+    return () => {
+      socket.off("call_ended");
+    };
   }, [onEnd, socket]);
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center text-white">
-      <h2 className="mb-4 text-lg font-bold">
-        Video Call with {remoteUserId}
-      </h2>
-      <div className="flex gap-4 w-full max-w-4xl">
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          className="w-1/2 border rounded-lg bg-gray-800"
-        />
-        <video
-          ref={localVideoRef}
-          autoPlay
-          muted
-          playsInline
-          className="w-1/2 border rounded-lg bg-gray-800"
-        />
+      <h2 className="mb-4 text-lg font-bold">Video Call With {remoteUserId}</h2>
+      <div className="flex gap-4">
+        <video ref={remoteVideoRef} autoPlay className="w-1/2 border " />
+        <video ref={localVideoRef} autoPlay muted className="w-1/2 border" />
       </div>
       <button
         onClick={handleEndCall}
-        className="mt-6 px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+        className="mt-6 px-4 py-2 bg-red-600 text-white rounded"
       >
         End Call
       </button>
