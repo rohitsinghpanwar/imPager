@@ -67,6 +67,7 @@ const loginUser=asyncHandler(async (req,res)=>{
     console.log(loggedInUser)
     const options={
         httpOnly:true,
+        sameSite:"None",
         secure:true
     }
 
@@ -97,6 +98,7 @@ const logoutUser=asyncHandler(async(req,res)=>{
 
 const options={
     httpOnly:true,
+    sameSite:"None",
     secure:true
 }
 return res.status(200).clearCookie("imPagerAT",options).clearCookie("imPagerRT",options).json(new apiResponse(200,{},"User Logged Out"))
@@ -162,6 +164,7 @@ const refreshAccessToken= asyncHandler(async (req,res)=>{
         }
         const options={
             httpOnly:true,
+            sameSite:"None",
             secure:true
         }
         const {accessToken,newRefreshToken}=await generateAccessAndRefreshTokens(user._id)
