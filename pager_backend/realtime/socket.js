@@ -46,36 +46,27 @@ const setupSocket = (server) => {
       }
     });
 
-    socket.on("offer", ({ to, offer }) => {
-      const toSocketId = onlineUsers.get(to);
-      if (toSocketId) {
-        io.to(toSocketId).emit("offer", { offer, from: to }); // Include 'from' for traceability
-        console.log(`Offer sent to ${to}`);
-      } else {
-        console.log(`User ${to} not found for offer`);
-      }
-    });
+    // In your socket server setup
+socket.on("offer", ({ to, offer }) => {
+  const receiverSocket = onlineUsers.get(to);
+  if (receiverSocket) {
+    io.to(receiverSocket).emit("offer", { offer, from: socket.userId });
+  }
+});
 
-    socket.on("answer", ({ to, answer }) => {
-      const toSocketId = onlineUsers.get(to);
-      if (toSocketId) {
-        io.to(toSocketId).emit("answer", { answer, from: to }); // Include 'from' for traceability
-        console.log(`Answer sent to ${to}`);
-      } else {
-        console.log(`User ${to} not found for answer`);
-      }
-    });
+socket.on("answer", ({ to, answer }) => {
+  const receiverSocket = onlineUsers.get(to);
+  if (receiverSocket) {
+    io.to(receiverSocket).emit("answer", { answer, from: socket.userId });
+  }
+});
 
-    socket.on("ice_candidate", ({ to, candidate }) => {
-      const toSocketId = onlineUsers.get(to);
-      if (toSocketId) {
-        io.to(toSocketId).emit("ice_candidate", { candidate, from: to }); // Include 'from' for traceability
-        console.log(`ICE candidate sent to ${to}`);
-      } else {
-        console.log(`User ${to} not found for ICE candidate`);
-      }
-    });
-
+socket.on("ice_candidate", ({ to, candidate }) => {
+  const receiverSocket = onlineUsers.get(to);
+  if (receiverSocket) {
+    io.to(receiverSocket).emit("ice_candidate", { candidate, from: socket.userId });
+  }
+});
     socket.on("call_ended", ({ toUserId, fromUserId }) => {
       const toSocketId = onlineUsers.get(toUserId);
       if (toSocketId) {

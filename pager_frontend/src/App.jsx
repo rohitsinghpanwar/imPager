@@ -4,8 +4,6 @@ import { useNavigate, NavLink } from "react-router";
 import githubIcon from './assets/github.png'
 import mailIcon from './assets/mail.png'
 import chatIcon from './assets/meetme.png'
-import videoIcon from './assets/video-calling.png'
-import HeroSection from './components/HeroSection.jsx'
 function App() {
     const [user, setUser] = useState(null);
     const navigate = useNavigate()
