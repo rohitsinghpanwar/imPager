@@ -27,7 +27,7 @@ function ChatSection(props) {
 
     const fetchMessages = async () => {
       try {
-        const res = await axios.get(`http://localhost:8000/api/v1/message/show/${chatId}`, { withCredentials: true });
+        const res = await axios.get(`${import.meta.env.VITE_BACKEND_URI}message/show/${chatId}`, { withCredentials: true });
         const sortedMessages = res.data.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
         setMessages(sortedMessages);
       } catch (error) {
@@ -99,7 +99,7 @@ function ChatSection(props) {
   const handleSend = async () => {
     try {
       const messageInfo = { message, chatId };
-      const res = await axios.post("http://localhost:8000/api/v1/message/send", { messageInfo }, { withCredentials: true });
+      const res = await axios.post(`${import.meta.env.VITE_BACKEND_URI}message/send`, { messageInfo }, { withCredentials: true });
       const sentMessage = res.data.data;
       socket.emit("new_message", sentMessage);
       setMessage("");
