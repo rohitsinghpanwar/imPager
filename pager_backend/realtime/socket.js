@@ -3,8 +3,7 @@ import { Server } from 'socket.io';
 const setupSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: "https://im-pager.verce
-l.app",
+      origin: "https://im-pager.vercel.app",
       methods: ["GET", "POST"],
       credentials: true,
     },
@@ -17,10 +16,6 @@ l.app",
 
     // Store user ID with their socket ID
     socket.on("user_connected", (userId) => {
-      if (!userId) {
-        console.error("Received invalid userId:", userId);
-        return;
-      }
       onlineUsers.set(userId, socket.id);
       io.emit("update_online_users", Array.from(onlineUsers.keys()));
       console.log(`User ${userId} is online`);
@@ -37,7 +32,7 @@ l.app",
         io.to(toSocketId).emit("incoming_video_call", { fromUserId });
         console.log(`Video call request from ${fromUserId} to ${toUserId}`);
       } else {
-        console.error(`User ${toUserId} not found for video call request`);
+console.error(`User ${toUserId} not found for video call request`);
         io.to(onlineUsers.get(fromUserId)).emit("call_failed", { toUserId });
       }
     });
@@ -48,37 +43,37 @@ l.app",
         io.to(toSocketId).emit("video_call_response", { accepted, fromUserId, toUserId });
         console.log(`Video call response from ${fromUserId} to ${toUserId}: ${accepted ? 'Accepted' : 'Rejected'}`);
       } else {
-        console.error(`User ${toUserId} not found for video call response`);
+        console.log(`User ${toUserId} not found for video call response`);
       }
     });
 
     socket.on("offer", ({ to, offer }) => {
       const toSocketId = onlineUsers.get(to);
       if (toSocketId) {
-        io.to(toSocketId).emit("offer", { offer, from: to });
+        io.to(toSocketId).emit("offer", { offer, from: to }); // Include 'from' for traceability
         console.log(`Offer sent to ${to}`);
       } else {
-        console.error(`User ${to} not found for offer`);
+        console.log(`User ${to} not found for offer`);
       }
     });
 
     socket.on("answer", ({ to, answer }) => {
       const toSocketId = onlineUsers.get(to);
       if (toSocketId) {
-        io.to(toSocketId).emit("answer", { answer, from: to });
+        io.to(toSocketId).emit("answer", { answer, from: to }); // Include 'from' for traceability
         console.log(`Answer sent to ${to}`);
       } else {
-        console.error(`User ${to} not found for answer`);
+        console.log(`User ${to} not found for answer`);
       }
     });
 
     socket.on("ice_candidate", ({ to, candidate }) => {
       const toSocketId = onlineUsers.get(to);
       if (toSocketId) {
-        io.to(toSocketId).emit("ice_candidate", { candidate, from: to });
+        io.to(toSocketId).emit("ice_candidate", { candidate, from: to }); // Include 'from' for traceability
         console.log(`ICE candidate sent to ${to}`);
       } else {
-        console.error(`User ${to} not found for ICE candidate`);
+        console.log(`User ${to} not found for ICE candidate`);
       }
     });
 
@@ -88,7 +83,7 @@ l.app",
         io.to(toSocketId).emit("call_ended", { fromUserId });
         console.log(`Call ended event sent from ${fromUserId} to ${toUserId}`);
       } else {
-        console.error(`User ${toUserId} not found for call ended`);
+        console.log(`User ${toUserId} not found for call ended`);
       }
     });
 
@@ -99,7 +94,7 @@ l.app",
     });
 
     socket.on("typing", (chatId) => {
-      socket  socket.to(chatId).emit("typing", chatId);
+      socket.to(chatId).emit("typing", chatId);
       console.log(`Typing in chat ${chatId}`);
     });
 
