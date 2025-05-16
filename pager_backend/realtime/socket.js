@@ -32,8 +32,7 @@ const setupSocket = (server) => {
         io.to(toSocketId).emit("incoming_video_call", { fromUserId });
         console.log(`Video call request from ${fromUserId} to ${toUserId}`);
       } else {
-console.error(`User ${toUserId} not found for video call request`);
-        io.to(onlineUsers.get(fromUserId)).emit("call_failed", { toUserId });
+        console.log(`User ${toUserId} not found for video call request`);
       }
     });
 
