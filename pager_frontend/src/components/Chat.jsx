@@ -136,14 +136,17 @@ function Chat() {
       console.log("Video call response:", { accepted, fromUserId, toUserId });
       if (accepted) {
         setActiveCall({ fromUserId, toUserId });
+        console.log("Active call set:", { fromUserId, toUserId });
       } else {
         alert("Call was rejected");
+        setActiveCall(null);
       }
     });
 
     socket.on("call_ended", () => {
       console.log("Call ended received");
       setActiveCall(null);
+      setIncomingCall(null);
     });
 
     return () => {
@@ -172,6 +175,10 @@ function Chat() {
     fetchRequestees();
     fetchChatters();
   }, [_id]);
+
+  useEffect(() => {
+    console.log("activeCall state:", activeCall);
+  }, [activeCall]);
 
   return (
     <div className="w-[100vw] h-[100vh]">
