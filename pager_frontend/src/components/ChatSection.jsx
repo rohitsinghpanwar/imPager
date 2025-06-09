@@ -1,200 +1,175 @@
+
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import socket from "./socket";
 import sendIcon from "../assets/paper-plane.png";
+import writeVideo from "../assets/write.mp4";
+import backIcon from "../assets/back.png";
+import typingIcon from "../assets/typing.mp4"
 
-function ChatSection(props) {
-  if (!props?.chat?.chatId || !props?.chat?.chatterUsername || !props?.chat?.chatterProfilePhoto) {
+function ChatSection({ chat, onBack,}) {
+
+  if (!chat?.chatId) {
     return (
-      <div className="w-full  flex items-center justify-center bg-gradient-to-bl from-white to-gray-500">
-        <h1 className="font-bold text-xl italic ">No Chat Selected</h1>
+      <div className="flex flex-col items-center justify-center flex-1 bg-gradient-to-bl from-orange-100 to-yellow-200">
+        <video src={writeVideo} loop autoPlay muted className="w-50 h-50 " />
+        <h1 className=" text-xl font-semibold">No Chat Selected!</h1>
       </div>
     );
   }
-  const chatterName=!props?.chat?.chatterUsername
-  console.log(chatterName)
+
+  // 🔑 meta
+  const { chatId, chatterUsername, chatterProfilePhoto, userId ,chatType} = chat;
+  // 📜 message state
   const [message, setMessage] = useState("");
-  const [disable, setDisable] = useState(true);
+  const [disableSend, setDisableSend] = useState(true);
   const [messages, setMessages] = useState([]);
-  const chatContainerRef = useRef(null);
-  const [typingTimeout, setTypingTimeout] = useState(null);
+  const chatRef = useRef(null);
   const [isTyping, setIsTyping] = useState(false);
-  let chatId = props.chat.chatId;
-  let userId = props.chat.userId;
+  const [typingTimeout, setTypingTimeout] = useState(null);
 
   useEffect(() => {
-    if (!chatId) return;
-
     const fetchMessages = async () => {
-      try {
-        const res = await axios.get(`${import.meta.env.VITE_BACKEND_URI}message/show/${chatId}`, { withCredentials: true });
-        const sortedMessages = res.data.messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-        setMessages(sortedMessages);
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-      }
+      const res = await axios.get(`${import.meta.env.VITE_BACKEND_URI}message/show/${chatId}`, {
+        withCredentials: true,
+      });
+      const sorted = res.data.messages.sort(
+        (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+      );
+      setMessages(sorted);
     };
 
     fetchMessages();
     socket.emit("join_chat", chatId);
-
-    return () => {
-      socket.emit("leave_chat", chatId);
-    };
+    return () => socket.emit("leave_chat", chatId);
   }, [chatId]);
 
+  // 🔄 receive messages in real‑time
   useEffect(() => {
-    const handleReceiveMessage = (newMessage) => {
-      setMessages((prev) => [...prev, newMessage]);
-    };
-
-    socket.on("receive_message", handleReceiveMessage);
-
-    return () => {
-      socket.off("receive_message", handleReceiveMessage);
-    };
+    const handleReceive = (m) => setMessages((prev) => [...prev, m]);
+    socket.on("receive_message", handleReceive);
+    return () => socket.off("receive_message", handleReceive);
   }, []);
 
+  // 🔃 autoscroll
   useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-    }
+    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages]);
 
+  // ✍🏻 typing events
   useEffect(() => {
-    const handleTyping = (chatIdFromSocket) => {
-      if (chatIdFromSocket === chatId) {
-        setIsTyping(true);
-      }
-    };
-  
-    const handleStopTyping = (chatIdFromSocket) => {
-      if (chatIdFromSocket === chatId) {
-        setIsTyping(false);
-      }
-    };
-  
+    const handleTyping = (id) => id === chatId && setIsTyping(true);
+    const handleStop = (id) => id === chatId && setIsTyping(false);
     socket.on("typing", handleTyping);
-    socket.on("stop_typing", handleStopTyping);
-  
+    socket.on("stop_typing", handleStop);
     return () => {
       socket.off("typing", handleTyping);
-      socket.off("stop_typing", handleStopTyping);
+      socket.off("stop_typing", handleStop);
     };
   }, [chatId]);
 
-  const handleMessage = (e) => {
-    const value = e.target.value;
-    setMessage(value);
-    setDisable(value.trim() === "");
+  const handleInput = (e) => {
+    const val = e.target.value;
+    setMessage(val);
+    setDisableSend(!val.trim());
     socket.emit("typing", chatId);
     if (typingTimeout) clearTimeout(typingTimeout);
-    const timeout = setTimeout(() => {
-      socket.emit("stop_typing", chatId);
-    }, 2000);
-  
-    setTypingTimeout(timeout);
+    setTypingTimeout(
+      setTimeout(() => {
+        socket.emit("stop_typing", chatId);
+      }, 1500)
+    );
   };
 
-  const handleSend = async () => {
-    try {
-      const messageInfo = { message, chatId };
-      const res = await axios.post(`${import.meta.env.VITE_BACKEND_URI}message/send`, { messageInfo }, { withCredentials: true });
-      const sentMessage = res.data.data;
-      socket.emit("new_message", sentMessage);
-      setMessage("");
-      setDisable(true);
-    } catch (error) {
-      console.error(error);
-    }
+  const sendMessage = async () => {
+    if (!message.trim()) return;
+    const body = { message, chatId };
+    const { data } = await axios.post(
+      `${import.meta.env.VITE_BACKEND_URI}message/send`,
+      { messageInfo: body },
+      { withCredentials: true }
+    );
+    socket.emit("new_message", data.data);
+    setMessage("");
+    setDisableSend(true);
+    
   };
 
-  const formatTimestamp = (timestamp) => {
-    return new Date(timestamp).toLocaleString("en-US", {
-      month: "short", 
-      day: "numeric", 
-      year: "numeric", 
-      hour: "numeric", 
-      minute: "2-digit", 
-      hour12: true, 
+  const formatTime = (t) =>
+    new Date(t).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
     });
-  };
-  const handleVideoCall = () => {
-  socket.emit("video_call_request", {
-    fromUserId: props.chat.userId,
-    toUserId: props.chat.chatterId,
-  });
-};
 
-
+  // 🖼️ UI
   return (
-    <div className="border relative w-full">
-      <div className="bg-amber-100 flex items-center justify-between p-2">
+    <div className="flex flex-col flex-1 h-full bg-gradient-to-br from-white to-amber-50">
+      {/* 🟠 Header */}
+      <header className="flex items-center gap-4 lg:p-3 p-1 bg-gradient-to-l to-blue-300 shadow-md sticky top-0 justify-between">
         <img
-          src={props.chat.chatterProfilePhoto}
-          alt="Chatter Profile Photo"
-          className="rounded-full border w-16 h-16"
+          src={backIcon}
+          alt="Back"
+          className="w-6 h-6 cursor-pointer sm:hidden"
+          onClick={onBack}
+        />
+        <img
+          src={chatterProfilePhoto}
+          className="w-12 h-12 rounded-full object-cover border-2 border-white"
+        />
+        <h2 className="font-bold text-xl flex-1 truncate">{chatterUsername}</h2>
+      </header>
+
+      {/* 🟡 Messages */}
+      <div
+        ref={chatRef}
+        className="flex-1 overflow-y-auto px-4 py-2 space-y-3"
+      >
+        {messages.map((msg) => {
+          const mine = msg.sender === userId;
+          return (
+            <div key={msg._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`relative max-w-xs md:max-w-md px-4 py-2 rounded-2xl shadow ${
+                  mine ? "bg-emerald-400 text-white" : "bg-blue-400 text-white"
+                }`}
+              >
+                {chatType==="group" &&(
+                  <p className="font-medium mb-0.5">
+                  {mine ? "You" : chatterUsername}
+                </p>
+                )
+                }
+                <p>{msg.message}</p>
+                <span className="text-xs opacity-70 text-black">
+                  {formatTime(msg.timestamp)}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+        {isTyping && (
+          <video src={typingIcon} muted loop autoPlay className="h-10 w-10"></video>
+        )}
+      </div>
+
+      {/* 🟢 Composer */}
+      <div className="p-3 flex items-center gap-2 bg-white shadow-inner sticky bottom-0">
+        <input
+          value={message}
+          onChange={handleInput}
+          onKeyDown={(e) => e.key === "Enter" && !disableSend && sendMessage()}
+          placeholder="Type a message…"
+          className="flex-1 border rounded-full px-4 py-2 outline-none focus:ring-2 "
         />
         <button
-  className="bg-blue-500 p-1 rounded-lg font-semibold text-lg"
-  onClick={() => {
-    socket.emit("video_call_request", {
-      fromUserId: userId,
-      toUserId: props.chat.chatterId, // Ensure this ID is provided in props
-    });
-  }}
->
-  Video Call
-</button>
-
-        <h2 className="font-bold text-2xl italic text-black">{props.chat.chatterUsername}</h2>
-      </div>
-
-      <div
-        ref={chatContainerRef}
-        className="scroll-smooth overflow-y-scroll h-[80%] flex flex-col gap-2 p-10"
-      >
-        {messages.map((msg) => (
-          <div
-            key={msg._id}
-            className={`relative flex w-full text-lg ${msg.sender === userId ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`relative border rounded-xl p-2 max-w-[70%] ${
-                msg.sender === userId ? "bg-green-400 text-white" : "bg-blue-400 text-white"
-              }`}
-            >
-              <h1>{msg.sender === userId
-                    ?"You":props.chat.chatterUsername}</h1>
-              {msg.message} <span className="text-xs">{formatTimestamp(msg.timestamp)}</span>
-              <div
-                className={`absolute w-0 h-0 border-t-8 border-b-8 ${
-                  msg.sender === userId
-                    ? "border-l-8 border-l-green-400 right-[-8px] top-2"
-                    : "border-r-8 border-r-blue-400 left-[-8px] top-2"
-                }`}
-              ></div>
-            </div>
-          </div>
-        ))}
-              {isTyping && <p className="text-sm border bg-violet-500 rounded-full w-max p-1">{props.chat.chatterUsername} is Typing...</p>}
-      </div>
-
-      <div className="flex bottom-0 absolute w-full p-2">
-        <input
-          type="text"
-          className="border flex-grow p-2 rounded-lg"
-          placeholder="Type your message"
-          onChange={handleMessage}
-          value={message}
-        />
-        <img
-          src={sendIcon}
-          className={`px-4 py-1 text-white ${disable ? "invert-50 cursor-not-allowed" : ""}`}
-          disabled={disable}
-          onClick={handleSend}
-          alt="Send"
-        />
+          disabled={disableSend}
+          onClick={sendMessage}
+          className="p-2 disabled:opacity-50"
+        >
+          <img src={sendIcon} alt="Send" className="w-8 h-8" />
+        </button>
       </div>
     </div>
   );

@@ -37,7 +37,7 @@ function App() {
     }, []);
 
     return (
-        <div className="bg-gradient-to-b from-blue-950  md:h-screen h-[93vh] relative  ">
+        <div className="bg-gradient-to-b from-blue-950  md:h-screen h-full relative  ">
 
 <main className="flex flex-col items-center justify-center px-6 py-12 bg-gradient-to-b from-blue-950  text-white min-h-screen">
   <section className="text-center max-w-4xl mx-auto p-8 flex flex-col items-center gap-6">

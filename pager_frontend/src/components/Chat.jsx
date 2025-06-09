@@ -1,347 +1,318 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router";
 import socket from "./socket";
 import SearchUser from "./SearchUser";
 import ChatSection from "./ChatSection";
 import Profile from "./Profile";
-import VideoCallModal from "./VideoCallModal";
-import VideoCall from "./VideoCall";
+import GroupChat from "./GroupChat";
+import { useDispatch } from "react-redux";
+import { clearUser } from "../redux/userSlice";
+import NotFound from "../assets/notfound.mp4";
 
 function Chat() {
+  // ⛳ hooks & meta
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { profilePhoto, _id } = JSON.parse(localStorage.getItem("impUser"));
 
-  const [requestee, setRequestee] = useState([]);
-  const [showChatRequest, setShowChatRequest] = useState(false);
+  // ⛳ state
+  const [requests, setRequests] = useState([]);
   const [chatters, setChatters] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingChatters, setLoadingChatters] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [showProfile, setShowProfile] = useState(false);
-  const [selectedChatterId, setSelectedChatterId] = useState("");
-  const [incomingCall, setIncomingCall] = useState(null);
-  const [activeCall, setActiveCall] = useState(null);
+  const [showRequests, setShowRequests] = useState(false);
+  const [selectedChat, setSelectedChat] = useState(null); // ← drives responsive layout
 
-  const [chatterDetails, setChatterDetails] = useState({
-    chatId: "",
-    chatterUsername: "",
-    chatterProfilePhoto: "",
-    userId: "",
-    chatterId: "",
-  });
+    const requestNotificationPermission = async () => {
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      console.log("Notification permission granted")
+    } else {
+      console.log('Notification permission denied')
+    }
+  }
 
-  // Fetch chatters
+
+  const showNotification = (text) => {
+    if ("serviceWorker" in navigator && "Notification" in window) {
+      Notification.requestPermission().then((permission) => {
+        if (permission === "granted") {
+          navigator.serviceWorker.ready.then((registration) => {
+            registration.showNotification("Welcome", {
+              body: text,
+              icon: "/icon.png",
+              badge: "/badge.png"
+            });
+          });
+        } else {
+          console.log("Notification permission denied");
+        }
+      });
+    }
+  };
+  // 🔎 fetch chatters once
   const fetchChatters = async () => {
     try {
-      setLoading(true);
-      const res = await axios.get(`${import.meta.env.VITE_BACKEND_URI}chatrequest/chatters`, {
-        withCredentials: true,
-      });
-      setChatters(res.data.chatters);
-    } catch (error) {
-      console.error("Failed to fetch chatters:", error);
+      setLoadingChatters(true);
+      const { data } = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URI}chatrequest/chatters`,
+        { withCredentials: true }
+      );
+      setChatters(data.chatters);
     } finally {
-      setLoading(false);
+      setLoadingChatters(false);
     }
   };
 
-  // Fetch chat requests
-  const fetchRequestees = async () => {
-    try {
-      const res = await axios.get(`${import.meta.env.VITE_BACKEND_URI}chatrequest/show`, {
+  // 🔎 fetch requests (chat + group) – simplified (no dedupe needed here)
+  const fetchRequests = useCallback(async () => {
+    const [chatRes, groupRes] = await Promise.allSettled([
+      axios.get(`${import.meta.env.VITE_BACKEND_URI}chatrequest/show`, {
         withCredentials: true,
-      });
-      setRequestee(res.data.requestReceiver);
-    } catch (error) {
-      console.error("Failed to fetch chat requests:", error);
-    }
-  };
-
-  const handleAcceptButton = async (requestId) => {
-    try {
-      await axios.post(
-        `${import.meta.env.VITE_BACKEND_URI}chatrequest/status/accept`,
-        { id: requestId },
-        { withCredentials: true }
-      );
-      await fetchRequestees();
-      await fetchChatters();
-    } catch (error) {
-      console.error("Error accepting request:", error);
-    }
-  };
-
-  const handleRejectButton = async (requestId) => {
-    try {
-      await axios.post(
-        `${import.meta.env.VITE_BACKEND_URI}chatrequest/status/reject`,
-        { id: requestId },
-        { withCredentials: true }
-      );
-      await fetchRequestees();
-    } catch (error) {
-      console.error("Error rejecting request:", error);
-    }
-  };
-
-  const handleShowProfile = () => {
-    setShowProfile(true);
-  };
-
-  const handleChat = async (deets) => {
-    setSelectedChatterId(deets._id);
-    try {
-      const res = await axios.post(
-        `${import.meta.env.VITE_BACKEND_URI}chat/chatid`,
-        {
-          userId: _id,
-          chatterId: deets._id,
-        },
-        { withCredentials: true }
-      );
-
-      setChatterDetails({
-        chatId: res.data.chatId,
-        chatterUsername: deets.username,
-        chatterProfilePhoto: deets.profilePhoto,
-        userId: _id,
-        chatterId: deets._id,
-      });
-    } catch (error) {
-      console.error("Error setting chat details:", error);
-    }
-  };
-
-  const handleLogout = () => {
-    const consent = confirm("Are you sure, you want to logout?");
-    if (consent) {
-      axios
-        .post(`${import.meta.env.VITE_BACKEND_URI}users/logout`, {}, { withCredentials: true })
-        .then(() => {
-          localStorage.removeItem("impUser");
-          navigate("/login");
-        })
-        .catch((e) => console.error("Error logging out:", e));
-    }
-  };
-
-  // Handle incoming/outgoing video calls
-  useEffect(() => {
-    socket.on("incoming_video_call", ({ fromUserId }) => {
-      console.log("Incoming video call from:", fromUserId);
-      setIncomingCall({ fromUserId });
-    });
-
-    socket.on("video_call_response", ({ accepted, fromUserId, toUserId }) => {
-      console.log("Video call response:", { accepted, fromUserId, toUserId });
-      if (accepted) {
-        setActiveCall({ fromUserId, toUserId });
-        console.log("Active call set:", { fromUserId, toUserId });
-      } else {
-        alert("Call was rejected");
-        setActiveCall(null);
-      }
-    });
-
-    socket.on("call_ended", () => {
-      console.log("Call ended received");
-      setActiveCall(null);
-      setIncomingCall(null);
-    });
-
-    return () => {
-      socket.off("incoming_video_call");
-      socket.off("video_call_response");
-      socket.off("call_ended");
-    };
+      }),
+      axios.get(`${import.meta.env.VITE_BACKEND_URI}grouprequest/show`, {
+        withCredentials: true,
+      }),
+    ]);
+    console.log(chatRes,groupRes)
+    let merged = [];
+    if (chatRes.status === "fulfilled") merged.push(...chatRes.value.data.requestReceiver);
+    if (groupRes.status === "fulfilled") merged.push(...groupRes.value.data.requestReceiver);
+    setRequests(merged);
   }, []);
 
-  // Track online users
+  // 📡 sockets + initial data
   useEffect(() => {
-    socket.on("update_online_users", (onlineIds) => {
-      setOnlineUsers(onlineIds);
-      console.log("Online users updated:", onlineIds);
-    });
-
-    return () => socket.off("update_online_users");
-  }, []);
-
-  // Initial load
-  useEffect(() => {
-    if (_id) {
-      socket.emit("user_connected", _id);
-      console.log("User connected:", _id);
-    }
-    fetchRequestees();
+    if (_id) socket.emit("user_connected", _id);
     fetchChatters();
-  }, [_id]);
+    fetchRequests();
+        if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/service-worker.js").then((registration) => {
+        console.log("Service worker registered", registration)
+      }).catch((error) => {
+        console.log("service worker registration failed", error)
+      })
+    }
+    requestNotificationPermission();
+    showNotification("Hi, Let's start Paging !");
+    socket.on("update_online_users", setOnlineUsers);
+    return () => socket.off("update_online_users", setOnlineUsers);
+  }, [_id, fetchRequests]);
 
-  useEffect(() => {
-    console.log("activeCall state:", activeCall);
-  }, [activeCall]);
+  console.log(requests)
+  // 🚦 accept / reject helper
+  const changeRequestStatus = async (id, type, action) => {
+    const base = type === "chat" ? "chatrequest" : "grouprequest";
+    await axios.post(
+      `${import.meta.env.VITE_BACKEND_URI}${base}/status/${action}`,
+      { id },
+      { withCredentials: true }
+    );
+    setRequests((prev) => prev.filter((r) => r._id !== id));
+  };
 
+  // 🔒 logout
+  const handleLogout = () => {
+    if (!confirm("Are you sure you want to logout?")) return;
+    axios
+      .post(`${import.meta.env.VITE_BACKEND_URI}users/logout`, {}, { withCredentials: true })
+      .finally(() => {
+        localStorage.removeItem("impUser");
+        dispatch(clearUser());
+        navigate("/login");
+      });
+  };
+  const pendingCount = requests.filter((r) => r.status === "pending").length;
   return (
-    <div className="w-[100vw] h-[100vh]">
-      {/* Navbar */}
-      <nav className="flex w-full bg-black/30 items-center justify-between p-1 h-15 text-lg font-semibold">
-        <h1>imPager</h1>
-        <div>
-          <button onClick={() => setShowChatRequest(!showChatRequest)}>
-            Chat Request {requestee.length}
-          </button>
-          {showChatRequest && (
-            <div className="absolute border p-2 z-10 rounded bg-gradient-to-bl from-cyan-400 to-yellow-200">
-              {requestee?.length > 0 ? (
-                requestee.map((req) => {
-                  const isHandled = req.status !== "pending";
-                  return (
-                    <div
-                      key={req._id}
-                      className={`flex items-center gap-4 p-2 shadow rounded mb-2 bg-white/30 backdrop-blur-2xl ${
-                        isHandled ? "opacity-50 pointer-events-none" : ""
-                      }`}
-                    >
-                      <img
-                        src={req.sender.profilePhoto}
-                        alt={req.sender.username}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                      <div>
-                        <p className="font-semibold">{req.sender.username}</p>
-                        <p className="text-sm text-gray-500">Status: {req.status}</p>
-                      </div>
-                      {!isHandled && (
-                        <div className="flex gap-2">
-                          <button
-                            className="bg-gradient-to-br from-emerald-300 to-blue-300 rounded p-1 border font-bold text-sm"
-                            onClick={() => handleAcceptButton(req._id)}
-                          >
-                            Accept
-                          </button>
-                          <button
-                            className="border bg-gradient-to-bl from-red-400 to-red-600 p-1 rounded font-bold text-sm"
-                            onClick={() => handleRejectButton(req._id)}
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              ) : (
-                <p>No chat requests found.</p>
-              )}
-            </div>
-          )}
-        </div>
+    <div className="w-screen h-screen flex flex-col ">
+      {/* 🌐 Navbar */}
+      <nav className="flex items-center justify-between  from- px-4 py-2 shadow-sm bg-gradient-to-bl  to-blue-400 border">
+        <h1 className="text-xl font-bold italic select-none">imPager</h1>
 
-        <button onClick={handleLogout}>Log-out</button>
-        <div className="flex flex-col items-center">
+        <div className="flex items-center gap-4">
+          <button
+            className="relative font-semibold"
+            onClick={() => setShowRequests(true)}
+          >
+            Requests
+            {!!pendingCount && (
+              <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs rounded-full px-1">
+                {pendingCount}
+              </span>
+            )}
+          </button>
+    <button onClick={handleLogout} className=" font-medium ">
+            Logout
+          </button>
           <img
             src={profilePhoto}
-            alt="Profile"
-            className="rounded-full h-12 w-12 border-white border"
-            onClick={handleShowProfile}
+            alt="Me"
+            className="h-10 w-10 rounded-full cursor-pointer border-2 border-white shadow-sm"
+            onClick={() => setShowProfile(true)}
           />
+          
         </div>
       </nav>
 
-      {/* Incoming Call Modal */}
-      {incomingCall && (
-        <VideoCallModal
-          caller={incomingCall.fromUserId}
-          onAccept={() => {
-            console.log("Accepting call from:", incomingCall.fromUserId);
-            socket.emit("video_call_response", {
-              toUserId: incomingCall.fromUserId,
-              accepted: true,
-              fromUserId: _id,
-            });
-            setIncomingCall(null);
-            setActiveCall({ fromUserId: incomingCall.fromUserId, toUserId: _id });
-          }}
-          onReject={() => {
-            console.log("Rejecting call from:", incomingCall.fromUserId);
-            socket.emit("video_call_response", {
-              toUserId: incomingCall.fromUserId,
-              accepted: false,
-              fromUserId: _id,
-            });
-            setIncomingCall(null);
-          }}
-        />
+      {/* 🪟 Requests overlay */}
+      {showRequests && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 space-y-3 overflow-y-auto">
+
+          {requests.length === 0 && (
+            <div className="flex flex-col items-center">
+              <video
+                src={NotFound}
+                autoPlay
+                loop
+                muted
+                className="w-48 h-48 rounded-full border-4 border-amber-300 object-cover"
+              />
+              <p className="text-white mt-4 text-lg font-semibold">No Requests Yet!</p>
+            </div>
+          )}
+
+          {requests.map((req) => {
+            const handled = req.status !== "pending";
+            console.log(req)
+            const badge = req.type === "chat" ? "CHAT" : `GROUP • ${req?.groupId?.groupName}`;
+            console.log(req)
+            return (
+              <div
+                key={req._id}
+                className={`flex items-center gap-3 w-full max-w-md p-3 rounded-xl shadow-lg bg-white/20 backdrop-blur-lg text-white ${
+                  handled ? "opacity-50" : ""
+                }`}
+              >
+                <img
+                  src={req.sender.profilePhoto}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-white"
+                />
+                <div className="flex flex-col flex-1">
+                  <span className="font-semibold">{req.sender.username}</span>
+                  <span className="text-xs italic opacity-80">{badge}</span>
+                </div>
+                {!handled && (
+                  <div className="flex gap-2">
+                    <button
+                      className="px-3 py-1 bg-emerald-400/90 rounded-lg text-sm hover:bg-emerald-500"
+                      onClick={() => changeRequestStatus(req._id, req.type, "accept")}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      className="px-3 py-1 bg-rose-500/90 rounded-lg text-sm hover:bg-rose-600"
+                      onClick={() => changeRequestStatus(req._id, req.type, "reject")}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <button
+            className=" text-white rounded-lg  bg-red-500 p-2 text-lg"
+            onClick={() => setShowRequests(false)}
+          >
+          Close
+          </button>
+        </div>
       )}
 
-      {/* Active Video Call */}
-      {activeCall && (
-        <VideoCall
-          socket={socket}
-          localUserId={_id}
-          remoteUserId={activeCall.fromUserId === _id ? activeCall.toUserId : activeCall.fromUserId}
-          isCaller={activeCall.fromUserId === _id}
-          onEnd={() => {
-            console.log("Ending active call");
-            socket.emit("call_ended", {
-              fromUserId: _id,
-              toUserId: activeCall.fromUserId === _id ? activeCall.toUserId : activeCall.fromUserId,
-            });
-            setActiveCall(null);
-          }}
-        />
-      )}
-
-      {/* Body */}
-      <div className="flex h-[91vh] border">
-        {/* Users Section */}
-        <section className="bg-gradient-to-br from-orange-200 to-yellow-200 border w-[70%]">
+      {/* 🖼️ Main layout */}
+      <div className="flex-1 flex overflow-hidden bg-gradient-to-tl from-blue-500">
+        {/* 📄 LEFT – Chat list & groups */}
+        <aside
+          className={`flex flex-col w-full sm:w-1/3 lg:w-1/4 border-r overflow-y-auto transition-transform duration-300 ${
+            selectedChat ? "sm:block" : ""
+          } ${selectedChat ? "hidden sm:flex" : "flex"}`}
+        >
+          {/* 🔍 Search + Chatters list */}
           <SearchUser userId={_id} />
-          <div className="flex flex-col items-center gap-2">
-            <h1 className="font-bold text-xl border-2 p-1 rounded border-dotted">Chatters</h1>
-            {loading ? (
-              <p>Loading chatters...</p>
-            ) : chatters.length > 0 ? (
+
+          <section className="px-4 pt-2 space-y-2 h-65 overflow-y-scroll scroll-smooth">
+            <h2 className="text-lg font-semibold mb-1 ">Chatters</h2>
+
+            {loadingChatters ? (
+              <p className="animate-pulse text-center">loading…</p>
+            ) : chatters.length ? (
               chatters.map((user) => (
-                <div
+                <button
                   key={user._id}
-                  className={`flex items-center gap-4 p-4 shadow-xl rounded mb-2 w-full transition-all ease-in-out duration-500 ${
-                    selectedChatterId === user._id ? "bg-white/50" : "hover:bg-white/40"
-                  } justify-around`}
-                  onClick={() => handleChat(user)}
+                  onClick={() => {
+                    axios
+                      .post(
+                        `${import.meta.env.VITE_BACKEND_URI}chat/chatid`,
+                        { userId: _id, chatterId: user._id },
+                        { withCredentials: true }
+                      )
+                      .then(({ data }) =>
+                        setSelectedChat({
+                          chatId: data.chatId,
+                          chatterUsername: user.username,
+                          chatterProfilePhoto: user.profilePhoto,
+                          userId: _id,
+                          chatterId: user._id,
+                        })
+                      );
+                  }}
+                  className={`flex  items-center gap-3 w-full p-3 rounded-xl text-left shadow-sm ${
+                    selectedChat?.chatterId === user._id
+                      ? "bg-white/60 "
+                      : "hover:bg-white/40"
+                  }`}
                 >
                   <img
                     src={user.profilePhoto}
-                    alt={user.username}
-                    className="w-12 h-12 rounded-full object-cover"
+                    className="w-10 h-10 rounded-full object-cover border-2 border-white"
                   />
-                  <div>
-                    <p className="font-semibold">{user.username}</p>
-                  </div>
+                  <span className="flex-1 font-medium truncate">{user.username}</span>
                   <span
-                    className={`border border-black rounded-full p-1 text-xs ${
+                    className={`text-xs px-2 py-0.5 rounded-full ${
                       onlineUsers.includes(user._id)
-                        ? "bg-gradient-to-br from-emerald-300 to-blue-300"
-                        : "bg-gradient-to-bl from-red-400 to-red-600"
+                        ? "text-green-600 font-semibold"
+                        : "text-red-600 font-semibold"
                     }`}
                   >
                     {onlineUsers.includes(user._id) ? "Online" : "Offline"}
                   </span>
-                </div>
+                </button>
               ))
             ) : (
-              <p>No Chatters Yet, Send Chat Request to start Chatting.</p>
+              <div className="flex flex-col items-center py-4">
+                <video
+                  src={NotFound}
+                  autoPlay
+                  loop
+                  muted
+                  className="w-40 h-40 rounded-full border-2 border-amber-300 object-cover"
+                />
+                <p className="font-medium mt-2 text-center">
+                  No chatters yet. Send a request!
+                </p>
+              </div>
             )}
-          </div>
-        </section>
+          </section>
 
-        {/* Chat Section */}
-        <ChatSection chat={chatterDetails} />
+          {/* 📚 Groups */}
+          <GroupChat onSelectGroup={(g) => setSelectedChat(g)} />
+        </aside>
+
+        {/* 💬 RIGHT – Chat section */}
+        <main className={`flex-1 ${
+          selectedChat ? "flex" : "hidden sm:flex"
+        }`}>
+          <ChatSection
+            chat={selectedChat}
+            onBack={() => setSelectedChat(null)}
+          />
+        </main>
       </div>
 
-      {/* Profile Modal */}
       {showProfile && <Profile onCancel={() => setShowProfile(false)} />}
     </div>
   );
 }
-
-export default Chat;
+export default Chat

@@ -56,8 +56,8 @@ function Profile({ onCancel }) {
   if (!showProfile) return null;
 
   return (
-    <div>
-      <div className="border absolute top-0 right-0 flex flex-col items-center z-1  p-2 rounded-lg shadow bg-gradient-to-bl from-cyan-400 to-yellow-200 ">
+    <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20'>
+      <div className="border flex flex-col items-center  p-2 rounded-lg shadow bg-gradient-to-bl from-cyan-400 to-yellow-200 w-100 ">
         <div className="relative">
           <img
             src={dp || profilePhoto}

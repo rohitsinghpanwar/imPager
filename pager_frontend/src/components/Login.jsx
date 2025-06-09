@@ -1,12 +1,14 @@
 import axios from 'axios'
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router'
-
+import { useDispatch } from 'react-redux'
+import { setUser } from '../redux/userSlice'
 function Login() {
   const [formdata, setFormdata] = useState({
     username: "",
     password: "",
   })
+  const dispatch=useDispatch();
   const handleChange = (e) => {
     setFormdata({ ...formdata, [e.target.name]: e.target.value })
   }
@@ -18,7 +20,10 @@ function Login() {
     setLoading(true)
     try {
       const response = await axios.post(`${import.meta.env.VITE_BACKEND_URI}users/login`, formdata, { withCredentials: true })
-      localStorage.setItem("impUser", JSON.stringify(response.data.data.user));
+      const userData=response.data.data.user
+      localStorage.setItem("impUser", JSON.stringify(userData));
+
+      dispatch(setUser(userData))
       navigate("/chat")
     } catch (error) {
       console.log("Error in Logging in the user", error)
