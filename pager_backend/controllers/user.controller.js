@@ -37,8 +37,7 @@ const registerUser=asyncHandler(async (req,res)=>{
          profilePhoto=process.env.DEFAULT_PROFILE_PHOTO
     }
     else{
-         profilePhoto=await uploadOnCloudinary(profilePhotopath)
-        
+         profilePhoto=await uploadOnCloudinary(profilePhotopath)   
     }
     if(!profilePhoto) throw new apiError(400,"Profile Photo is required");
     const user = await User.create({
@@ -83,6 +82,7 @@ const loginUser=asyncHandler(async (req,res)=>{
 
 const persistLogin=asyncHandler(async(req,res)=>{
     if(!req.user) throw new apiError(401,"user not authenticated")
+    console.log(req)
     res.status(200).json(
     new apiResponse(200,{user:req.user},"User is authenticated"))
 })

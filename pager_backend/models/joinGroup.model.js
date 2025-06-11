@@ -1,13 +1,19 @@
 import mongoose,{Schema} from "mongoose";
 const Request=new Schema({
+    groupId:{
+        type:mongoose.Schema.Types.ObjectId,
+        ref: "Group",
+        required: true
+    },
     sender:{
         type:mongoose.Schema.Types.ObjectId,
         ref: "User",
         required: true
     },
-    receiver:{
+    groupOwner:{
         type:mongoose.Schema.Types.ObjectId,
-        ref:"User"
+        ref:"User",
+        required:true
     },
     status:{
         type:String,
@@ -15,10 +21,10 @@ const Request=new Schema({
         default:'pending'
     },
     type: {
-    type: String,
-    default: "chat",
-    immutable: true
-}
+        type: String,
+        default: "group",
+        immutable: true
+    }
 })
 
-export const chatRequest=mongoose.model("Chat_Request",Request)
+export const joinRequest=mongoose.model("Group_Request",Request)
