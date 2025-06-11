@@ -198,6 +198,8 @@ const searchUser=asyncHandler(async (req,res)=>{
 
 const changeProfilePhoto = asyncHandler(async (req, res) => {
     const { _id } = req.body;
+    console.log(req.body,req.files,req.files.dp,req.files.dp[0],req.files.dp[0].
+        path)
     if (!req.files || !req.files.dp || !req.files.dp[0] || !req.files.dp[0].
         path) {
       throw new apiError(400, "No Profile Photo Found");
