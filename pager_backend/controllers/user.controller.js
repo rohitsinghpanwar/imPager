@@ -46,7 +46,7 @@ const registerUser=asyncHandler(async (req,res)=>{
         $or: [{username},{email}]
     })
     if (existedUser) throw new apiError(409,"User Already exists,try login or forgot password")
-    const profilePhotopath=req?.files?.profilePhoto?.[0]?.path;
+    const profilePhotopath=req?.files?.profilePhoto?.[0]?.buffer;
     let profilePhoto;
     if (!profilePhotopath) {
          profilePhoto=process.env.DEFAULT_PROFILE_PHOTO
@@ -198,19 +198,15 @@ const searchUser=asyncHandler(async (req,res)=>{
 
 const changeProfilePhoto = asyncHandler(async (req, res) => {
     const { _id } = req.body;
-    console.log(req.body,req.files,req.files.dp,req.files.dp[0],req.files.dp[0].
-        path)
-    if (!req.files || !req.files.dp || !req.files.dp[0] || !req.files.dp[0].
-        path) {
+    
+    if (!req.files || !req.files.dp || !req.files.dp[0] || !req.files.dp[0].buffer) {
       throw new apiError(400, "No Profile Photo Found");
     }
-    const profilePath = req.files.dp[0].path;
+    const profilePath = req?.files?.dp[0]?.buffer;
     const user = await User.findById(_id);
     if (!user) {
       throw new apiError(404, "User not found");
     }
-  
-    // Delete old profile photo if it exists and is not the default
     const oldProfileUrl = user.profilePhoto;
     if (oldProfileUrl && oldProfileUrl !== process.env.DEFAULT_PROFILE_PHOTO) {
       try {

@@ -32,6 +32,7 @@ function Profile({ onCancel }) {
       const formData = new FormData();
       formData.append("dp",selectedFile);
       formData.append("_id", _id);
+      console.log(formData)
       const res = await axios.post(`${import.meta.env.VITE_BACKEND_URI}users/changedp`, formData, {
         withCredentials: true,
         headers: { "Content-Type": "multipart/form-data" },
