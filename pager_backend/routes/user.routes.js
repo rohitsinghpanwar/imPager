@@ -19,6 +19,6 @@ router.route("/emailverification").post(emailVerification)
 router.route("/changepassword").post(changePassword)
 router.route("/refreshcreds").get(refreshAccessToken)
 router.route("/search").post(verifyJWT,searchUser);
-router.route("/changedp").post(verifyJWT,upload.fields([{name:"dp",maxCount:1}]),changeProfilePhoto)
+router.route("/changedp").post(upload.fields([{name:"dp",maxCount:1}]),verifyJWT,changeProfilePhoto)
 
 export default router

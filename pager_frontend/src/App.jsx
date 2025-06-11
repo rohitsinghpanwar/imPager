@@ -57,7 +57,7 @@ function App() {
   </section>
 </main>
 
-<footer className="bg-black w-full border-t  rounded-t-xl   p-4 text-white absolute bottom-0">
+<footer className="text-white bg-black w-full border-t  rounded-t-xl   p-4  absolute bottom-0">
   <div className="flex  md:flex-row justify-between items-start md:items-center gap-4 md:gap-0">
     
     {/* About Section */}

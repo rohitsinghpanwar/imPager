@@ -6,6 +6,21 @@ import { User } from "../models/user.model.js";
 import { deleteOldProfile, uploadOnCloudinary } from "../utils/cloudinary.js";
 import {sendOtp,verifyOtp} from '../utils/otpEmailVerification.js'
 
+const oneDay   = 24 * 60 * 60 * 1000; 
+const sevenDay = 7  * oneDay;
+const RToptions={
+        httpOnly:true,
+        sameSite:"None",
+        secure:true,
+        maxAge:sevenDay,
+    }
+
+const AToptions={
+        httpOnly:true,
+        sameSite:"None",
+        secure:true,
+        maxAge:oneDay,
+    }
 const generateAccessAndRefreshTokens=async(userId)=>{
     try{
         const user=await User.findById(userId)
@@ -62,15 +77,14 @@ const loginUser=asyncHandler(async (req,res)=>{
     const isPasswordValid=await user.isPasswordCorrect(password)
     if(!isPasswordValid) throw new apiError(401,'Password is incorrect')
     const {accessToken,refreshToken}=await generateAccessAndRefreshTokens(user._id);
+    if (!user.refreshToken) {
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+  }
     const loggedInUser=await User.findById(user._id).select("-password -refreshToken")
     console.log(loggedInUser)
-    const options={
-        httpOnly:true,
-        sameSite:"None",
-        secure:true
-    }
 
-    return res.status(200).cookie("imPagerAT",accessToken,options).cookie("imPagerRT",refreshToken,options).json(
+    return res.status(200).cookie("imPagerAT",accessToken,AToptions).cookie("imPagerRT",refreshToken,RToptions).json(
         new apiResponse(200,{
             user:loggedInUser,accessToken,refreshToken
         },
@@ -96,12 +110,7 @@ const logoutUser=asyncHandler(async(req,res)=>{
     {new:true}
 )
 
-const options={
-    httpOnly:true,
-    sameSite:"None",
-    secure:true
-}
-return res.status(200).clearCookie("imPagerAT",options).clearCookie("imPagerRT",options).json(new apiResponse(200,{},"User Logged Out"))
+return res.status(200).clearCookie("imPagerAT",AToptions).clearCookie("imPagerRT",RToptions).json(new apiResponse(200,{},"User Logged Out"))
 })
 
 const forgotPassword = asyncHandler(async (req, res) => {
@@ -159,17 +168,12 @@ const refreshAccessToken= asyncHandler(async (req,res)=>{
         if(!user){
             throw new apiError(404,"Invalid refresh token")
         }
-        if(decodeToken !== user.refreshToken){
+        if(userRefreshToken !== user.refreshToken){
             throw new apiError(401,"Refresh token is expired or used,Please Re-login")
-        }
-        const options={
-            httpOnly:true,
-            sameSite:"None",
-            secure:true
         }
         const {accessToken,newRefreshToken}=await generateAccessAndRefreshTokens(user._id)
 
-        return res.status(200).cookie("imPagerAT",accessToken,options).cookie("imPagerRT",newRefreshToken,options).json(
+        return res.status(200).cookie("imPagerAT",accessToken,AToptions).cookie("imPagerRT",newRefreshToken,RToptions).json(
             new apiResponse(200,{accessToken,refreshToken:newRefreshToken},"New access token generated successfully")
         )
     }
@@ -194,8 +198,9 @@ const searchUser=asyncHandler(async (req,res)=>{
 
 const changeProfilePhoto = asyncHandler(async (req, res) => {
     const { _id } = req.body;
-    if (!req.files || !req.files.dp || !req.files.dp[0] || !req.files.dp[0].path) {
-      throw new apiError(400, "No profile photo uploaded");
+    if (!req.files || !req.files.dp || !req.files.dp[0] || !req.files.dp[0].
+        path) {
+      throw new apiError(400, "No Profile Photo Found");
     }
     const profilePath = req.files.dp[0].path;
     const user = await User.findById(_id);
